@@ -90,6 +90,11 @@
     background: #2a2a2a;
   }
   
+  .fw-btn.active {
+    background: #2a5a2a;
+    border-color: #4a7a4a;
+  }
+  
   .fw-num {
     display: inline-block;
     min-width: 40px;
@@ -461,8 +466,18 @@ setTimeout(() => {
     rocketGravity: 0.30,
     explosionSpeed: 0.51,
     particleDecay: 0.60,
-    launchIntervalMult: 1.75
+    launchIntervalMult: 1.75,
+    avatarsVisible: true  // Add avatar visibility state
   }, window.FW || {});
+
+  // Function to toggle avatar visibility
+  function toggleAvatars(visible) {
+    const avatars = [badge1, badge2, badge3];
+    avatars.forEach(avatar => {
+      avatar.style.display = visible ? '' : 'none';
+    });
+    FW.avatarsVisible = visible;
+  }
 
   // Patch Rocket.update
   if (!Rocket.prototype.__fwPatched) {
@@ -585,6 +600,7 @@ setTimeout(() => {
         <button class="fw-btn" id="fw_preset_chill">Chill</button>
         <button class="fw-btn" id="fw_preset_super">Super Chill</button>
         <button class="fw-btn" id="fw_preset_turbo">Turbo</button>
+        <button class="fw-btn ${FW.avatarsVisible ? 'active' : ''}" id="fw_toggle_avatars">Toggle Avatars</button>
         <button class="fw-btn" id="fw_hide">Hide</button>
       </div>`;
     parent.appendChild(panel);
@@ -627,6 +643,14 @@ setTimeout(() => {
     panel.querySelector('#fw_preset_chill').addEventListener('click', () => setPreset('chill'));
     panel.querySelector('#fw_preset_super').addEventListener('click', () => setPreset('super'));
     panel.querySelector('#fw_preset_turbo').addEventListener('click', () => setPreset('turbo'));
+    
+    // Add avatar toggle handler
+    panel.querySelector('#fw_toggle_avatars').addEventListener('click', (e) => {
+      const newState = !FW.avatarsVisible;
+      toggleAvatars(newState);
+      e.target.classList.toggle('active', newState);
+    });
+    
     panel.querySelector('#fw_hide').addEventListener('click', () => {
       panel.style.display = 'none';
     });
