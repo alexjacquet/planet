@@ -39,6 +39,22 @@
   .avatar2 { animation-delay: 0.7s, 1.3s; }
   .avatar3 { animation-delay: 0.9s, 1.5s; }
   
+  /* Emoji styles */
+  .emoji-particle {
+    position: absolute;
+    font-size: 24px;
+    user-select: none;
+    pointer-events: none;
+    z-index: 2;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+    will-change: transform;
+  }
+  
+  @keyframes emojiSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  
   .fw-panel {
     position: absolute;
     top: 12px;
@@ -137,17 +153,7 @@
 
 <script>
 // ============================================================
-// FIREWORKS SYSTEM FOR MOBILE WEBVIEW
-// 
-// CORE SYSTEM (Required):
-// - Container & Canvas setup
-// - Planet & Avatar images  
-// - Fireworks classes: Particle, Rocket, FireworksSystem
-// - Animation loop & initialization
-// - Avatar clustering (triangle positioning)
-// 
-// OPTIONAL (Debug/Testing - can be removed for production):
-// - Control panel & gear button (everything after "END OF CORE")
+// FIREWORKS SYSTEM WITH EMOJI PARTICLES
 // ============================================================
 
 // ================== CONTAINER (520×932) ==================
@@ -189,13 +195,81 @@ container.appendChild(badge1);
 container.appendChild(badge2);
 container.appendChild(badge3);
 
+// ================== EMOJI SYSTEM ==================
+// Pool of celebration emojis
+const EMOJI_POOL = ['⭐', '✨', '💫', '🌟', '🎉', '🎊', '🎈', '💎', '🌈', '🎯', '🎨', '🎭', '🎪', '🎆', '🎇'];
+
+class EmojiParticle {
+  constructor(x, y) {
+    this.element = document.createElement('div');
+    this.element.className = 'emoji-particle';
+    this.element.textContent = EMOJI_POOL[Math.floor(Math.random() * EMOJI_POOL.length)];
+    
+    // Position and physics
+    this.x = x;
+    this.y = y;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 2;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed - 1; // Slight upward bias
+    
+    // Visual properties
+    this.rotation = 0;
+    this.rotationSpeed = (Math.random() - 0.5) * 10;
+    this.scale = 0.3; // Start small
+    this.targetScale = 0.8 + Math.random() * 0.4; // Random final size
+    this.opacity = 1;
+    this.fadeDelay = 40 + Math.random() * 20; // Frames before fading
+    this.age = 0;
+    
+    // Apply initial styles
+    this.element.style.left = `${this.x}px`;
+    this.element.style.top = `${this.y}px`;
+    this.element.style.opacity = '0';
+    this.element.style.transform = `translate(-50%, -50%) scale(${this.scale})`;
+    
+    container.appendChild(this.element);
+  }
+  
+  update() {
+    this.age++;
+    
+    // Physics
+    this.vy += 0.15; // Gravity
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vx *= 0.98; // Air resistance
+    this.rotation += this.rotationSpeed;
+    
+    // Scale animation (pop in effect)
+    if (this.scale < this.targetScale) {
+      this.scale += (this.targetScale - this.scale) * 0.2;
+    }
+    
+    // Fade out after delay
+    if (this.age > this.fadeDelay) {
+      this.opacity -= 0.03;
+    } else if (this.opacity < 1) {
+      this.opacity = Math.min(1, this.opacity + 0.2);
+    }
+    
+    // Apply transforms
+    this.element.style.left = `${this.x}px`;
+    this.element.style.top = `${this.y}px`;
+    this.element.style.opacity = this.opacity;
+    this.element.style.transform = `translate(-50%, -50%) rotate(${this.rotation}deg) scale(${this.scale})`;
+  }
+  
+  isDead() {
+    return this.opacity <= 0 || this.y > canvas.height + 50 || this.x < -50 || this.x > canvas.width + 50;
+  }
+  
+  remove() {
+    this.element.remove();
+  }
+}
+
 // ================== FIREWORKS LOGIC ==================
-// MOBILE WEBVIEW PERFORMANCE OPTIMIZATIONS:
-// 1. Shadows only on larger particles (size > 1.5) - line 208-211
-// 2. Particle count reduced from 30-60 to 20-30 - line 286
-// 3. Variable colors with weighted themes - lines 218-232
-// 4. Explosions biased above avatars - lines 342, 349
-// These changes maintain visual quality with ~50% better performance
 class Particle {
   constructor(x, y, color, velocity, size = 2) {
     this.x = x;
@@ -222,9 +296,6 @@ class Particle {
     ctx.globalAlpha = this.opacity;
     ctx.fillStyle = this.color;
     
-    // MOBILE OPTIMIZATION: Only add shadows to larger particles
-    // This significantly improves performance while keeping the glow effect
-    // on the most visible particles
     if (this.size > 1.5) {
       ctx.shadowBlur = 10;
       ctx.shadowColor = this.color;
@@ -254,23 +325,16 @@ class Rocket {
     this.trail = [];
     this.size = 3;
     
-    // COLOR VARIETY: Weighted color themes for more visual interest
-    // Cool colors with occasional warm accents, no performance impact
     const colorTheme = Math.random();
     if (colorTheme < 0.3) {
-      // 30% blue/cyan
       this.hue = 180 + Math.random() * 40;
     } else if (colorTheme < 0.5) {
-      // 20% purple/violet  
       this.hue = 270 + Math.random() * 30;
     } else if (colorTheme < 0.7) {
-      // 20% pink/magenta
       this.hue = 300 + Math.random() * 30;
     } else if (colorTheme < 0.85) {
-      // 15% green/teal
       this.hue = 150 + Math.random() * 30;
     } else {
-      // 15% special: gold/warm accent
       this.hue = 30 + Math.random() * 30;
     }
   }
@@ -307,8 +371,6 @@ class Rocket {
   
   explode() {
     const particles = [];
-    // MOBILE OPTIMIZATION: Reduced particle count from 30-60 to 20-30
-    // This maintains visual quality while improving performance on mobile devices
     const count = 20 + Math.floor(Math.random() * 10);
     
     for (let i = 0; i < count; i++) {
@@ -325,6 +387,18 @@ class Rocket {
       particles.push(new Particle(this.x, this.y, '#ffffff',
         { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed }, 2));
     }
+    
+    // EMOJI SPAWNING: 30% chance to spawn 1-3 emojis
+    if (Math.random() < 0.3) {
+      const emojiCount = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < emojiCount; i++) {
+        // Slight offset from center for variety
+        const offsetX = (Math.random() - 0.5) * 20;
+        const offsetY = (Math.random() - 0.5) * 20;
+        fireworks.emojis.push(new EmojiParticle(this.x + offsetX, this.y + offsetY));
+      }
+    }
+    
     return particles;
   }
 }
@@ -333,6 +407,7 @@ class FireworksSystem {
   constructor() {
     this.rockets = [];
     this.particles = [];
+    this.emojis = []; // Track emoji particles
     this.launchTimer = 0;
     this.launchInterval = 40;
   }
@@ -344,6 +419,8 @@ class FireworksSystem {
       this.launchTimer = 0;
       this.launchInterval = 30 + Math.floor(Math.random() * 50);
     }
+    
+    // Update rockets
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const rocket = this.rockets[i];
       rocket.update();
@@ -352,11 +429,23 @@ class FireworksSystem {
         this.rockets.splice(i, 1);
       }
     }
+    
+    // Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const particle = this.particles[i];
       particle.update();
       if (particle.opacity <= 0 || particle.y > canvas.height) {
         this.particles.splice(i, 1);
+      }
+    }
+    
+    // Update emojis
+    for (let i = this.emojis.length - 1; i >= 0; i--) {
+      const emoji = this.emojis[i];
+      emoji.update();
+      if (emoji.isDead()) {
+        emoji.remove();
+        this.emojis.splice(i, 1);
       }
     }
   }
@@ -366,13 +455,13 @@ class FireworksSystem {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     this.rockets.forEach(r => r.draw());
     this.particles.forEach(p => p.draw());
+    // Emojis are DOM elements, no canvas drawing needed
   }
   
   launch() {
     const startX = 170 + (Math.random() - 0.5) * 100;
     const startY = 430;
     const targetX = canvas.width - 200 - Math.random() * 100;
-    // BIASED MORE ABOVE: Reduced from 50-150 to 30-90 for higher explosions
     const targetY = 30 + Math.random() * 60;
     this.rockets.push(new Rocket(startX, startY, targetX, targetY));
 
@@ -380,7 +469,7 @@ class FireworksSystem {
       setTimeout(() => {
         const startX2 = 170 + (Math.random() - 0.5) * 100;
         const targetX2 = canvas.width - 170 - Math.random() * 40;
-        const targetY2 = 30 + Math.random() * 60;  // Same bias for second rocket
+        const targetY2 = 30 + Math.random() * 60;
         this.rockets.push(new Rocket(startX2, startY, targetX2, targetY2));
       }, 200);
     }
@@ -402,9 +491,7 @@ setTimeout(() => {
   }
 }, 500);
 
-// ================== AVATAR CLUSTERING (CORE FEATURE) ==================
-// Simple positioning system for the 3 avatars
-// Positions them in a triangle pattern relative to the planet
+// ================== AVATAR CLUSTERING ==================
 (() => {
   function rectRelTo(el, relTo) {
     const r = el.getBoundingClientRect();
@@ -422,44 +509,32 @@ setTimeout(() => {
   function clusterAnchor() {
     const pc = rectRelTo(planet, container);
     return {
-      x: pc.right + 24,  // 24px to the right of planet
-      y: pc.top + 42     // Aligned with top of planet
+      x: pc.right + 24,
+      y: pc.top + 42
     };
   }
 
-  // Triangle layout - the only one needed for production
   function placeCluster() {
     const anchor = clusterAnchor();
     const positions = [
-      { dx: -6, dy: -42 },  // Top avatar
-      { dx: 58, dy: 8 },    // Right avatar
-      { dx: -20, dy: 42 }   // Bottom avatar
+      { dx: -6, dy: -42 },
+      { dx: 58, dy: 8 },
+      { dx: -20, dy: 42 }
     ];
     
     const badges = [badge1, badge2, badge3];
     badges.forEach((el, i) => {
       const { dx, dy } = positions[i];
       el.style.right = 'auto';
-      el.style.left = (anchor.x + dx - 45) + 'px';  // 45 = half of 90px avatar width
-      el.style.top = (anchor.y + dy - 45) + 'px';   // 45 = half of 90px avatar height
+      el.style.left = (anchor.x + dx - 45) + 'px';
+      el.style.top = (anchor.y + dy - 45) + 'px';
     });
   }
 
   placeCluster();
 })();
 
-// ============================================================
-// END OF CORE FIREWORKS SYSTEM
-// ============================================================
-
-// ============================================================
-// DEVELOPER NOTE: CONTROL PANEL SECTION (OPTIONAL)
-// Everything below this line is for the debug control panel
-// You can safely remove everything from here down if you don't
-// need the controls in production
-// ============================================================
-
-// ================== LIVE CONTROL PANEL ==================
+// ================== CONTROL PANEL (OPTIONAL) ==================
 (() => {
   const FW = window.FW = Object.assign({
     rocketSpeed: 0.21,
@@ -467,10 +542,10 @@ setTimeout(() => {
     explosionSpeed: 0.51,
     particleDecay: 0.60,
     launchIntervalMult: 1.75,
-    avatarsVisible: true  // Add avatar visibility state
+    avatarsVisible: true,
+    emojisEnabled: true  // Add emoji toggle
   }, window.FW || {});
 
-  // Function to toggle avatar visibility
   function toggleAvatars(visible) {
     const avatars = [badge1, badge2, badge3];
     avatars.forEach(avatar => {
@@ -542,13 +617,21 @@ setTimeout(() => {
           this.particles.splice(i, 1);
         }
       }
+      // Update emojis
+      for (let i = this.emojis.length - 1; i >= 0; i--) {
+        const emoji = this.emojis[i];
+        emoji.update();
+        if (emoji.isDead()) {
+          emoji.remove();
+          this.emojis.splice(i, 1);
+        }
+      }
     };
     
     FireworksSystem.prototype.launch = function () {
       const startX = 170 + (Math.random() - 0.5) * 100;
       const startY = 430;
       const targetX = canvas.width - 170 - Math.random() * 40;
-      // BIASED MORE ABOVE: Explosions now happen 30-90px from top instead of 50-150px
       const targetY = 30 + Math.random() * 60;
       this.rockets.push(new Rocket(startX, startY, targetX, targetY));
 
@@ -556,7 +639,7 @@ setTimeout(() => {
         setTimeout(() => {
           const startX2 = 170 + (Math.random() - 0.5) * 100;
           const targetX2 = canvas.width - 170 - Math.random() * 40;
-          const targetY2 = 30 + Math.random() * 60;  // Same bias for second rocket
+          const targetY2 = 30 + Math.random() * 60;
           this.rockets.push(new Rocket(startX2, startY, targetX2, targetY2));
         }, 200);
       }
@@ -601,6 +684,7 @@ setTimeout(() => {
         <button class="fw-btn" id="fw_preset_super">Super Chill</button>
         <button class="fw-btn" id="fw_preset_turbo">Turbo</button>
         <button class="fw-btn ${FW.avatarsVisible ? 'active' : ''}" id="fw_toggle_avatars">Toggle Avatars</button>
+        <button class="fw-btn ${FW.emojisEnabled ? 'active' : ''}" id="fw_toggle_emojis">Toggle Emojis</button>
         <button class="fw-btn" id="fw_hide">Hide</button>
       </div>`;
     parent.appendChild(panel);
@@ -644,11 +728,50 @@ setTimeout(() => {
     panel.querySelector('#fw_preset_super').addEventListener('click', () => setPreset('super'));
     panel.querySelector('#fw_preset_turbo').addEventListener('click', () => setPreset('turbo'));
     
-    // Add avatar toggle handler
     panel.querySelector('#fw_toggle_avatars').addEventListener('click', (e) => {
       const newState = !FW.avatarsVisible;
       toggleAvatars(newState);
       e.target.classList.toggle('active', newState);
+    });
+    
+    // Emoji toggle handler
+    panel.querySelector('#fw_toggle_emojis').addEventListener('click', (e) => {
+      FW.emojisEnabled = !FW.emojisEnabled;
+      e.target.classList.toggle('active', FW.emojisEnabled);
+      
+      // Override the explode method based on toggle
+      const originalExplode = Rocket.prototype.explode.toString().match(/function[^{]+\{([\s\S]*)\}$/)[1];
+      Rocket.prototype.explode = function() {
+        const particles = [];
+        const count = 20 + Math.floor(Math.random() * 10);
+        
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+          const speed = 1 + Math.random() * 4;
+          const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+          const hue = this.hue + (Math.random() - 0.5) * 30;
+          const color = `hsl(${hue}, 100%, ${60 + Math.random() * 40}%)`;
+          particles.push(new Particle(this.x, this.y, color, velocity, 1 + Math.random() * 2));
+        }
+        for (let i = 0; i < 5; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 1;
+          particles.push(new Particle(this.x, this.y, '#ffffff',
+            { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed }, 2));
+        }
+        
+        // Only spawn emojis if enabled
+        if (FW.emojisEnabled && Math.random() < 0.3) {
+          const emojiCount = 1 + Math.floor(Math.random() * 3);
+          for (let i = 0; i < emojiCount; i++) {
+            const offsetX = (Math.random() - 0.5) * 20;
+            const offsetY = (Math.random() - 0.5) * 20;
+            fireworks.emojis.push(new EmojiParticle(this.x + offsetX, this.y + offsetY));
+          }
+        }
+        
+        return particles;
+      };
     });
     
     panel.querySelector('#fw_hide').addEventListener('click', () => {
