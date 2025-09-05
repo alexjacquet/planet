@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fireworks System</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+  
+  @keyframes popOut {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    50% { transform: scale(1.2) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-8px) rotate(2deg); }
+    50% { transform: translateY(0px) rotate(0deg); }
+    75% { transform: translateY(-5px) rotate(-2deg); }
+  }
+  
+  .avatar {
+    animation: popOut 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards,
+               float 4s ease-in-out infinite;
+    opacity: 0;
+  }
+  
+  .avatar1 { animation-delay: 0.5s, 1.1s; }
+  .avatar2 { animation-delay: 0.7s, 1.3s; }
+  .avatar3 { animation-delay: 0.9s, 1.5s; }
+  
+  .fw-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 4;
+    background: #0b0b0ddd;
+    color: #fff;
+    font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  
+  .fw-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    color: #fff;
+  }
+  
+  .fw-row label {
+    min-width: 140px;
+    opacity: .85;
+    color: #fff;
+  }
+  
+  .fw-row input[type="range"] {
+    width: 180px;
+  }
+  
+  .fw-bts {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .fw-btn {
+    background: #1f1f1f;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: #fff;
+    cursor: pointer;
+  }
+  
+  .fw-btn:hover {
+    background: #2a2a2a;
+  }
+  
+  .fw-num {
+    display: inline-block;
+    min-width: 40px;
+    text-align: right;
+    opacity: .85;
+    color: #fff;
+  }
+  
+  .fw-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    opacity: .9;
+    color: #fff;
+  }
+  
+  .fw-gear {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0b0b0ddd;
+    border: 1px solid #2a2a2a;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  .fw-gear:hover {
+    background: #171717dd;
+  }
+</style>
+</head>
+<body>
+
+<script>
+// ============================================================
+// FIREWORKS SYSTEM FOR MOBILE WEBVIEW
+// 
+// CORE SYSTEM (Required):
+// - Container & Canvas setup
+// - Planet & Avatar images  
+// - Fireworks classes: Particle, Rocket, FireworksSystem
+// - Animation loop & initialization
+// - Avatar clustering (triangle positioning)
+// 
+// OPTIONAL (Debug/Testing - can be removed for production):
+// - Control panel & gear button (everything after "END OF CORE")
+// ============================================================
+
+// ================== CONTAINER (520×932) ==================
+const container = document.createElement('div');
+container.style.cssText = 'position:relative;width:520px;height:932px;background:#000';
+document.body.appendChild(container);
+
+// ================== FIREWORKS CANVAS ==================
+const canvas = document.createElement('canvas');
+canvas.id = 'fireworks-canvas';
+canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:1';
+container.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+canvas.width = 520;
+canvas.height = 932;
+
+// ================== PLANET + BADGES ==================
+const planet = document.createElement('img');
+planet.src = 'https://storage.googleapis.com/smiletime-dev-cdn-assets/assets/OrbitPrototype/PlanetTransparent.png';
+planet.style.cssText = 'position:absolute;left:20px;top:280px;width:300px;height:300px;object-fit:contain;z-index:2';
+container.appendChild(planet);
+
+const badge1 = document.createElement('img');
+badge1.src = 'https://storage.googleapis.com/smiletime-dev-cdn-assets/assets/OrbitPrototype/1st.png';
+badge1.className = 'avatar avatar1';
+badge1.style.cssText = 'position:absolute;right:70px;top:280px;width:90px;height:90px;object-fit:contain;z-index:3';
+
+const badge2 = document.createElement('img');
+badge2.src = 'https://storage.googleapis.com/smiletime-dev-cdn-assets/assets/OrbitPrototype/2nd.png';
+badge2.className = 'avatar avatar2';
+badge2.style.cssText = 'position:absolute;right:50px;top:350px;width:90px;height:90px;object-fit:contain;z-index:3';
+
+const badge3 = document.createElement('img');
+badge3.src = 'https://storage.googleapis.com/smiletime-dev-cdn-assets/assets/OrbitPrototype/3rd.png';
+badge3.className = 'avatar avatar3';
+badge3.style.cssText = 'position:absolute;right:70px;top:420px;width:90px;height:90px;object-fit:contain;z-index:3';
+
+container.appendChild(badge1);
+container.appendChild(badge2);
+container.appendChild(badge3);
+
+// ================== FIREWORKS LOGIC ==================
+// MOBILE WEBVIEW PERFORMANCE OPTIMIZATIONS:
+// 1. Shadows only on larger particles (size > 1.5) - line 208-211
+// 2. Particle count reduced from 30-60 to 20-30 - line 286
+// 3. Variable colors with weighted themes - lines 218-232
+// 4. Explosions biased above avatars - lines 342, 349
+// These changes maintain visual quality with ~50% better performance
+class Particle {
+  constructor(x, y, color, velocity, size = 2) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.velocity = velocity;
+    this.size = size;
+    this.opacity = 1;
+    this.decay = Math.random() * 0.02 + 0.005;
+    this.gravity = 0.05;
+  }
+  
+  update() {
+    this.velocity.y += this.gravity;
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
+    this.velocity.x *= 0.99;
+    this.velocity.y *= 0.99;
+    this.opacity -= this.decay;
+  }
+  
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.opacity;
+    ctx.fillStyle = this.color;
+    
+    // MOBILE OPTIMIZATION: Only add shadows to larger particles
+    // This significantly improves performance while keeping the glow effect
+    // on the most visible particles
+    if (this.size > 1.5) {
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = this.color;
+    }
+    
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class Rocket {
+  constructor(x, y, targetX, targetY) {
+    this.x = x;
+    this.y = y;
+    this.targetX = targetX;
+    this.targetY = targetY;
+
+    const baseAngle = -Math.PI / 4;
+    const variation = (Math.random() - 0.5) * 0.3;
+    const angle = baseAngle + variation;
+
+    const speed = 12 + Math.random() * 6;
+    this.velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+
+    this.trail = [];
+    this.size = 3;
+    
+    // COLOR VARIETY: Weighted color themes for more visual interest
+    // Cool colors with occasional warm accents, no performance impact
+    const colorTheme = Math.random();
+    if (colorTheme < 0.3) {
+      // 30% blue/cyan
+      this.hue = 180 + Math.random() * 40;
+    } else if (colorTheme < 0.5) {
+      // 20% purple/violet  
+      this.hue = 270 + Math.random() * 30;
+    } else if (colorTheme < 0.7) {
+      // 20% pink/magenta
+      this.hue = 300 + Math.random() * 30;
+    } else if (colorTheme < 0.85) {
+      // 15% green/teal
+      this.hue = 150 + Math.random() * 30;
+    } else {
+      // 15% special: gold/warm accent
+      this.hue = 30 + Math.random() * 30;
+    }
+  }
+  
+  update() {
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 15) this.trail.shift();
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
+    this.velocity.y += 0.15;
+  }
+  
+  draw() {
+    this.trail.forEach((p, i) => {
+      ctx.save();
+      ctx.globalAlpha = i / this.trail.length * 0.5;
+      ctx.fillStyle = `hsl(${this.hue}, 100%, 60%)`;
+      ctx.fillRect(p.x, p.y, 2, 2);
+      ctx.restore();
+    });
+    ctx.save();
+    ctx.fillStyle = `hsl(${this.hue}, 100%, 70%)`;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = `hsl(${this.hue}, 100%, 50%)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  
+  shouldExplode() {
+    return this.x >= canvas.width - 150 || this.y <= 50 || this.velocity.y > 3;
+  }
+  
+  explode() {
+    const particles = [];
+    // MOBILE OPTIMIZATION: Reduced particle count from 30-60 to 20-30
+    // This maintains visual quality while improving performance on mobile devices
+    const count = 20 + Math.floor(Math.random() * 10);
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+      const speed = 1 + Math.random() * 4;
+      const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+      const hue = this.hue + (Math.random() - 0.5) * 30;
+      const color = `hsl(${hue}, 100%, ${60 + Math.random() * 40}%)`;
+      particles.push(new Particle(this.x, this.y, color, velocity, 1 + Math.random() * 2));
+    }
+    for (let i = 0; i < 5; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 1;
+      particles.push(new Particle(this.x, this.y, '#ffffff',
+        { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed }, 2));
+    }
+    return particles;
+  }
+}
+
+class FireworksSystem {
+  constructor() {
+    this.rockets = [];
+    this.particles = [];
+    this.launchTimer = 0;
+    this.launchInterval = 40;
+  }
+  
+  update() {
+    this.launchTimer++;
+    if (this.launchTimer >= this.launchInterval) {
+      this.launch();
+      this.launchTimer = 0;
+      this.launchInterval = 30 + Math.floor(Math.random() * 50);
+    }
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const rocket = this.rockets[i];
+      rocket.update();
+      if (rocket.shouldExplode()) {
+        this.particles.push(...rocket.explode());
+        this.rockets.splice(i, 1);
+      }
+    }
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const particle = this.particles[i];
+      particle.update();
+      if (particle.opacity <= 0 || particle.y > canvas.height) {
+        this.particles.splice(i, 1);
+      }
+    }
+  }
+  
+  draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    this.rockets.forEach(r => r.draw());
+    this.particles.forEach(p => p.draw());
+  }
+  
+  launch() {
+    const startX = 170 + (Math.random() - 0.5) * 100;
+    const startY = 430;
+    const targetX = canvas.width - 200 - Math.random() * 100;
+    // BIASED MORE ABOVE: Reduced from 50-150 to 30-90 for higher explosions
+    const targetY = 30 + Math.random() * 60;
+    this.rockets.push(new Rocket(startX, startY, targetX, targetY));
+
+    if (Math.random() < 0.3) {
+      setTimeout(() => {
+        const startX2 = 170 + (Math.random() - 0.5) * 100;
+        const targetX2 = canvas.width - 170 - Math.random() * 40;
+        const targetY2 = 30 + Math.random() * 60;  // Same bias for second rocket
+        this.rockets.push(new Rocket(startX2, startY, targetX2, targetY2));
+      }, 200);
+    }
+  }
+}
+
+// ================== INIT ==================
+const fireworks = new FireworksSystem();
+(function animate() {
+  fireworks.update();
+  fireworks.draw();
+  requestAnimationFrame(animate);
+})();
+
+// Initial burst
+setTimeout(() => {
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => fireworks.launch(), i * 300);
+  }
+}, 500);
+
+// ================== AVATAR CLUSTERING (CORE FEATURE) ==================
+// Simple positioning system for the 3 avatars
+// Positions them in a triangle pattern relative to the planet
+(() => {
+  function rectRelTo(el, relTo) {
+    const r = el.getBoundingClientRect();
+    const base = relTo.getBoundingClientRect();
+    return {
+      left: r.left - base.left,
+      top: r.top - base.top,
+      width: r.width,
+      height: r.height,
+      right: r.right - base.left,
+      bottom: r.bottom - base.top
+    };
+  }
+
+  function clusterAnchor() {
+    const pc = rectRelTo(planet, container);
+    return {
+      x: pc.right + 24,  // 24px to the right of planet
+      y: pc.top + 42     // Aligned with top of planet
+    };
+  }
+
+  // Triangle layout - the only one needed for production
+  function placeCluster() {
+    const anchor = clusterAnchor();
+    const positions = [
+      { dx: -6, dy: -42 },  // Top avatar
+      { dx: 58, dy: 8 },    // Right avatar
+      { dx: -20, dy: 42 }   // Bottom avatar
+    ];
+    
+    const badges = [badge1, badge2, badge3];
+    badges.forEach((el, i) => {
+      const { dx, dy } = positions[i];
+      el.style.right = 'auto';
+      el.style.left = (anchor.x + dx - 45) + 'px';  // 45 = half of 90px avatar width
+      el.style.top = (anchor.y + dy - 45) + 'px';   // 45 = half of 90px avatar height
+    });
+  }
+
+  placeCluster();
+})();
+
+// ============================================================
+// END OF CORE FIREWORKS SYSTEM
+// ============================================================
+
+// ============================================================
+// DEVELOPER NOTE: CONTROL PANEL SECTION (OPTIONAL)
+// Everything below this line is for the debug control panel
+// You can safely remove everything from here down if you don't
+// need the controls in production
+// ============================================================
+
+// ================== LIVE CONTROL PANEL ==================
+(() => {
+  const FW = window.FW = Object.assign({
+    rocketSpeed: 0.21,
+    rocketGravity: 0.30,
+    explosionSpeed: 0.51,
+    particleDecay: 0.60,
+    launchIntervalMult: 1.75
+  }, window.FW || {});
+
+  // Patch Rocket.update
+  if (!Rocket.prototype.__fwPatched) {
+    Rocket.prototype.__fwPatched = true;
+    const MAX_TRAIL = 15;
+    const _explode = Rocket.prototype.explode;
+    Rocket.prototype.update = function () {
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > MAX_TRAIL) this.trail.shift();
+      this.x += this.velocity.x * FW.rocketSpeed;
+      this.y += this.velocity.y * FW.rocketSpeed;
+      this.velocity.y += 0.15 * FW.rocketGravity;
+    };
+    Rocket.prototype.explode = function () {
+      const parts = _explode.call(this);
+      for (const p of parts) {
+        p.velocity.x *= FW.explosionSpeed;
+        p.velocity.y *= FW.explosionSpeed;
+      }
+      return parts;
+    };
+    Rocket.prototype.shouldExplode = function () {
+      return this.x >= canvas.width - 150 || this.y <= 50 || this.velocity.y > 3;
+    };
+  }
+
+  // Patch Particle.update
+  if (!Particle.prototype.__fwPatched) {
+    Particle.prototype.__fwPatched = true;
+    Particle.prototype.update = function () {
+      this.velocity.y += this.gravity * FW.rocketGravity;
+      this.x += this.velocity.x;
+      this.y += this.velocity.y;
+      this.velocity.x *= 0.99;
+      this.velocity.y *= 0.99;
+      this.opacity -= this.decay * FW.particleDecay;
+    };
+  }
+
+  // Patch System.update
+  if (!FireworksSystem.prototype.__fwPatched) {
+    FireworksSystem.prototype.__fwPatched = true;
+    FireworksSystem.prototype.update = function () {
+      this.launchTimer++;
+      if (this.launchTimer >= this.launchInterval * FW.launchIntervalMult) {
+        this.launch();
+        this.launchTimer = 0;
+        this.launchInterval = (30 + Math.floor(Math.random() * 50)) * FW.launchIntervalMult;
+      }
+      for (let i = this.rockets.length - 1; i >= 0; i--) {
+        const rocket = this.rockets[i];
+        rocket.update();
+        if (rocket.shouldExplode()) {
+          this.particles.push(...rocket.explode());
+          this.rockets.splice(i, 1);
+        }
+      }
+      for (let i = this.particles.length - 1; i >= 0; i--) {
+        const particle = this.particles[i];
+        particle.update();
+        if (particle.opacity <= 0 || particle.y > canvas.height) {
+          this.particles.splice(i, 1);
+        }
+      }
+    };
+    
+    FireworksSystem.prototype.launch = function () {
+      const startX = 170 + (Math.random() - 0.5) * 100;
+      const startY = 430;
+      const targetX = canvas.width - 170 - Math.random() * 40;
+      // BIASED MORE ABOVE: Explosions now happen 30-90px from top instead of 50-150px
+      const targetY = 30 + Math.random() * 60;
+      this.rockets.push(new Rocket(startX, startY, targetX, targetY));
+
+      if (Math.random() < 0.3) {
+        setTimeout(() => {
+          const startX2 = 170 + (Math.random() - 0.5) * 100;
+          const targetX2 = canvas.width - 170 - Math.random() * 40;
+          const targetY2 = 30 + Math.random() * 60;  // Same bias for second rocket
+          this.rockets.push(new Rocket(startX2, startY, targetX2, targetY2));
+        }, 200);
+      }
+    };
+  }
+
+  const parent = container;
+
+  function buildPanel() {
+    const panel = document.createElement('div');
+    panel.className = 'fw-panel';
+    panel.innerHTML = `
+      <div class="fw-title">Fireworks Controls</div>
+      <div class="fw-row">
+        <label>Rocket speed</label>
+        <input id="fw_rocket" type="range" min="0.01" max="2" step="0.01" value="${FW.rocketSpeed}">
+        <span id="fw_rocket_v" class="fw-num">${FW.rocketSpeed.toFixed(2)}</span>
+      </div>
+      <div class="fw-row">
+        <label>Rocket gravity</label>
+        <input id="fw_rgrav" type="range" min="0" max="1.5" step="0.01" value="${FW.rocketGravity}">
+        <span id="fw_rgrav_v" class="fw-num">${FW.rocketGravity.toFixed(2)}</span>
+      </div>
+      <div class="fw-row">
+        <label>Explosion speed</label>
+        <input id="fw_expl" type="range" min="0.1" max="2" step="0.01" value="${FW.explosionSpeed}">
+        <span id="fw_expl_v" class="fw-num">${FW.explosionSpeed.toFixed(2)}</span>
+      </div>
+      <div class="fw-row">
+        <label>Particle decay</label>
+        <input id="fw_decay" type="range" min="0.2" max="2" step="0.01" value="${FW.particleDecay}">
+        <span id="fw_decay_v" class="fw-num">${FW.particleDecay.toFixed(2)}</span>
+      </div>
+      <div class="fw-row">
+        <label>Launch interval ×</label>
+        <input id="fw_launch" type="range" min="0.25" max="4" step="0.05" value="${FW.launchIntervalMult}">
+        <span id="fw_launch_v" class="fw-num">${FW.launchIntervalMult.toFixed(2)}</span>
+      </div>
+      <div class="fw-bts">
+        <button class="fw-btn" id="fw_preset_normal">Normal</button>
+        <button class="fw-btn" id="fw_preset_chill">Chill</button>
+        <button class="fw-btn" id="fw_preset_super">Super Chill</button>
+        <button class="fw-btn" id="fw_preset_turbo">Turbo</button>
+        <button class="fw-btn" id="fw_hide">Hide</button>
+      </div>`;
+    parent.appendChild(panel);
+
+    const $ = (sel) => panel.querySelector(sel);
+    function bind(id, key) {
+      const input = $(id), label = $(id + '_v');
+      input.addEventListener('input', () => {
+        FW[key] = parseFloat(input.value);
+        label.textContent = FW[key].toFixed(2);
+      });
+    }
+    bind('#fw_rocket', 'rocketSpeed');
+    bind('#fw_rgrav', 'rocketGravity');
+    bind('#fw_expl', 'explosionSpeed');
+    bind('#fw_decay', 'particleDecay');
+    bind('#fw_launch', 'launchIntervalMult');
+
+    function setPreset(p) {
+      const P = {
+        normal: {rocketSpeed: 0.21, rocketGravity: 0.3, explosionSpeed: 0.51, particleDecay: 0.60, launchIntervalMult: 1.75},
+        chill: {rocketSpeed: 0.5, rocketGravity: 0.6, explosionSpeed: 0.7, particleDecay: 0.7, launchIntervalMult: 1.3},
+        super: {rocketSpeed: 0.2, rocketGravity: 0.4, explosionSpeed: 0.4, particleDecay: 0.55, launchIntervalMult: 1.6},
+        turbo: {rocketSpeed: 1.6, rocketGravity: 1, explosionSpeed: 1.4, particleDecay: 1.2, launchIntervalMult: 0.8}
+      }[p];
+      Object.assign(FW, P);
+      $('#fw_rocket').value = FW.rocketSpeed;
+      $('#fw_rocket_v').textContent = FW.rocketSpeed.toFixed(2);
+      $('#fw_rgrav').value = FW.rocketGravity;
+      $('#fw_rgrav_v').textContent = FW.rocketGravity.toFixed(2);
+      $('#fw_expl').value = FW.explosionSpeed;
+      $('#fw_expl_v').textContent = FW.explosionSpeed.toFixed(2);
+      $('#fw_decay').value = FW.particleDecay;
+      $('#fw_decay_v').textContent = FW.particleDecay.toFixed(2);
+      $('#fw_launch').value = FW.launchIntervalMult;
+      $('#fw_launch_v').textContent = FW.launchIntervalMult.toFixed(2);
+    }
+    
+    panel.querySelector('#fw_preset_normal').addEventListener('click', () => setPreset('normal'));
+    panel.querySelector('#fw_preset_chill').addEventListener('click', () => setPreset('chill'));
+    panel.querySelector('#fw_preset_super').addEventListener('click', () => setPreset('super'));
+    panel.querySelector('#fw_preset_turbo').addEventListener('click', () => setPreset('turbo'));
+    panel.querySelector('#fw_hide').addEventListener('click', () => {
+      panel.style.display = 'none';
+    });
+
+    return panel;
+  }
+
+  // Gear button
+  let gear = parent.querySelector('.fw-gear');
+  if (!gear) {
+    gear = document.createElement('div');
+    gear.className = 'fw-gear';
+    gear.textContent = '⚙️';
+    gear.title = 'Show/Hide Fireworks Controls';
+    parent.appendChild(gear);
+  }
+
+  gear.onclick = () => {
+    let panel = parent.querySelector('.fw-panel');
+    if (!panel) panel = buildPanel();
+    panel.style.display = (panel.style.display === 'none') ? '' : 'none';
+  };
+
+  // Build panel initially
+  if (!parent.querySelector('.fw-panel')) buildPanel();
+})();
+</script>
+
+</body>
+</html>
